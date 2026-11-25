@@ -1,0 +1,1548 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#07141f">
+  <title>Семейная кинотека</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Google Fonts: Golos Text (текст) + Cormorant Garamond (заголовки), обе с кириллицей -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700;800&family=Cormorant+Garamond:ital,wght@1,600;1,700&display=swap" rel="stylesheet">
+
+  <!-- Firebase SDKs -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['Golos Text', 'system-ui', 'sans-serif'] },
+          colors: {
+            brand: {
+              darina: '#d63a5c',
+              denis: '#8fd3ff',
+              kp: '#ff6600',
+              youtube: '#ff0000',
+              bg: '#07141f',
+              card: '#0e2736',
+              input: '#123247',
+              border: '#2b5671'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    :root {
+      --night: #07141f;
+      --frost: #eef6fc;
+      --ice: #8fd3ff;
+      --cranberry: #d7263d;
+      --pine: #238a5b;
+      --gold: #f2c14e;
+      --snow: #e9f4fc;
+      --cap: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 20' preserveAspectRatio='none'%3E%3Cpath fill='%23f4faff' d='M0 0H200V9C196 9 195 15 190 15C184 15 184 8 178 8C171 8 172 19 164 19C157 19 158 10 151 10C145 10 144 14 138 14C131 14 132 6 125 6C118 6 119 17 111 17C104 17 105 9 98 9C91 9 91 20 83 20C76 20 77 11 70 11C63 11 64 5 57 5C50 5 51 15 44 15C37 15 38 8 31 8C24 8 25 18 17 18C10 18 11 10 4 10C2 10 1 9 0 9Z'/%3E%3C/svg%3E");
+    }
+    html { color-scheme: dark; }
+
+    body {
+      color: var(--frost);
+      background:
+        radial-gradient(1100px 560px at 82% -8%, rgba(120, 190, 235, 0.17), transparent 62%),
+        radial-gradient(900px 520px at 4% 6%, rgba(215, 38, 61, 0.11), transparent 60%),
+        linear-gradient(180deg, #0a2131 0%, #07141f 55%, #050e16 100%);
+      background-attachment: fixed;
+    }
+
+    /* ---------- Стекло и подсветка ---------- */
+    .glass-panel {
+      background: linear-gradient(180deg, rgba(12, 33, 48, 0.92), rgba(9, 27, 40, 0.82));
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(190, 225, 255, 0.16);
+    }
+    .glow-darina { box-shadow: 0 0 20px rgba(214, 58, 92, 0.45); }
+    .glow-denis  { box-shadow: 0 0 20px rgba(143, 211, 255, 0.40); }
+    .kp-badge { background: linear-gradient(135deg, #ff6600, #ff8533); }
+
+    /* ---------- Цвета интерфейса в новогодней палитре ---------- */
+    body .bg-pink-500 { background-color: #d63a5c; }
+    body .bg-cyan-400 { background-color: #8fd3ff; }
+    body .bg-green-500 { background-color: #5fd39a; }
+    body .bg-green-600 { background-color: #238a5b; }
+    body .bg-purple-500,
+    body .bg-purple-600 { background-color: #f2c14e; color: #2b1d00; }
+    body .hover\:bg-purple-700:hover { background-color: #e0aa2c; }
+    body .text-purple-400 { color: #f2c14e; }
+    body .text-green-400 { color: #7fe3b0; }
+    body .bg-green-500 i,
+    body .bg-purple-500 i { color: inherit; }
+    body .bg-gray-800 { background-color: rgba(190, 225, 255, 0.12); }
+    body .bg-gray-900 { background-color: #0c2231; }
+    body .border-gray-800 { border-color: rgba(170, 215, 245, 0.14); }
+    body .border-gray-800\/80 { border-color: rgba(190, 225, 255, 0.16); }
+    body .text-gray-400 { color: #a9c3d6; }
+    body .text-gray-500 { color: #8fb0c6; }
+    body .from-pink-500.to-purple-600 {
+      background-image: linear-gradient(135deg, #e0334b 0%, #a3122c 100%);
+      color: #fff;
+    }
+    ::placeholder { color: #7fa0b6; }
+    :is(input, select, textarea, button, a):focus-visible {
+      outline: 2px solid var(--gold) !important;
+      outline-offset: 2px;
+    }
+
+    /* ---------- Шапка: игрушка, заголовок, счётчик ---------- */
+    .bauble {
+      position: relative;
+      width: 2.6rem; height: 2.6rem;
+      margin-top: 0.4rem;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-size: 1rem;
+      background: radial-gradient(circle at 32% 28%, #ff8a9a 0, #d7263d 38%, #7d0f25 100%);
+      box-shadow: inset -3px -4px 8px rgba(0, 0, 0, 0.35), 0 4px 14px rgba(215, 38, 61, 0.45);
+    }
+    .bauble::before {
+      content: ""; position: absolute; top: -6px; left: 50%;
+      width: 12px; height: 8px; transform: translateX(-50%);
+      background: linear-gradient(#f7d77a, #c9972b);
+      border-radius: 2px 2px 1px 1px;
+    }
+    .bauble::after {
+      content: ""; position: absolute; top: -12px; left: 50%;
+      width: 8px; height: 8px; transform: translateX(-50%);
+      border: 2px solid #c9972b; border-bottom: 0;
+      border-radius: 6px 6px 0 0;
+    }
+    .brand-title {
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-style: italic; font-weight: 700;
+      font-size: 2rem; line-height: 1;
+      letter-spacing: 0.01em; color: #fff;
+    }
+    @media (min-width: 640px) { .brand-title { font-size: 2.3rem; } }
+
+    .ny-chip {
+      align-items: center; gap: 0.5rem;
+      padding: 0.45rem 0.85rem; border-radius: 999px;
+      font-size: 0.8rem; font-weight: 600; color: #dcecf8;
+      background: rgba(242, 193, 78, 0.10);
+      border: 1px solid rgba(242, 193, 78, 0.35);
+    }
+    .ny-chip i { color: var(--ice); }
+
+    /* ---------- Гирлянда под шапкой ---------- */
+    #garland {
+      position: absolute; left: 0; right: 0; top: 100%;
+      height: 46px; overflow: hidden; pointer-events: none;
+    }
+    #garland svg { display: block; width: 100%; height: 100%; }
+    #garland .bulb {
+      fill: var(--c);
+      filter: drop-shadow(0 0 5px var(--c));
+      animation: twinkle 2.6s ease-in-out infinite;
+    }
+    @keyframes twinkle {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.35; }
+    }
+
+    /* ---------- Вкладки-билетики ---------- */
+    #tabWatched, #tabPlan, #tabKpSearch {
+      position: relative;
+      display: inline-flex; align-items: center; gap: 0.6rem;
+      padding: 0.65rem 1.1rem 0.65rem 1rem;
+      border: 0; border-radius: 10px;
+      box-shadow: inset 0 0 0 1px rgba(170, 215, 245, 0.28);
+      background-image: linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0));
+      -webkit-mask:
+        radial-gradient(circle 7px at 0 50%, #0000 97%, #000) left / 51% 100% no-repeat,
+        radial-gradient(circle 7px at 100% 50%, #0000 97%, #000) right / 51% 100% no-repeat;
+      mask:
+        radial-gradient(circle 7px at 0 50%, #0000 97%, #000) left / 51% 100% no-repeat,
+        radial-gradient(circle 7px at 100% 50%, #0000 97%, #000) right / 51% 100% no-repeat;
+    }
+    #tabWatched:focus-visible, #tabPlan:focus-visible, #tabKpSearch:focus-visible {
+      -webkit-mask: none; mask: none;
+    }
+    #tabWatched i, #tabPlan i, #tabKpSearch i { width: 1.2rem; margin: 0; text-align: center; }
+    #tabWatched::after, #tabPlan::after, #tabKpSearch::after {
+      content: ""; position: absolute; top: 22%; bottom: 22%; left: 2.5rem;
+      border-left: 1.5px dashed currentColor; opacity: 0.35; pointer-events: none;
+    }
+    #tabWatched span, #tabPlan span { margin-left: 0.1rem; }
+    #tabWatched.bg-green-500 {
+      background-image: linear-gradient(135deg, #7be6b1, #3fb67f);
+      color: #04271a; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.4);
+    }
+    #tabPlan.bg-purple-500 {
+      background-image: linear-gradient(135deg, #f9de8a, #e5a92b);
+      color: #2b1d00; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.4);
+    }
+    #tabKpSearch.bg-brand-kp {
+      background-image: linear-gradient(135deg, #ff8a3d, #ff5a00);
+      color: #fff; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+    }
+
+    /* ---------- Кнопка-подарок и кнопка-рандом ---------- */
+    body .from-pink-500.to-purple-600.gift-btn {
+      display: inline-flex; align-items: center; gap: 0.7rem;
+      padding: 0.5rem 1.15rem 0.5rem 0.5rem; border-radius: 12px;
+      background-image: linear-gradient(135deg, #e0334b 0%, #a3122c 100%);
+      box-shadow: 0 8px 20px -8px rgba(215, 38, 61, 0.8);
+    }
+    .gift-btn:hover { filter: brightness(1.1); }
+    .gift-ico {
+      width: 2rem; height: 2rem; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      background: linear-gradient(135deg, #f9de8a, #c9972b);
+      color: #6b1c00; box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.15);
+    }
+
+    .random-btn {
+      position: relative; overflow: hidden;
+      display: inline-flex; align-items: center; gap: 0.65rem;
+      padding: 0.5rem 1.1rem 0.5rem 0.5rem; border-radius: 12px;
+      font-size: 0.875rem; font-weight: 700; color: #fff; cursor: pointer;
+      background: linear-gradient(135deg, #238a5b 0%, #14593a 100%);
+      border: 1px solid rgba(242, 193, 78, 0.45);
+      box-shadow: 0 8px 20px -8px rgba(35, 138, 91, 0.85);
+      transition: filter 0.2s, transform 0.15s;
+    }
+    .random-btn:hover { filter: brightness(1.12); transform: translateY(-1px); }
+    .random-btn:active { transform: translateY(0); }
+    .random-ico {
+      width: 2rem; height: 2rem; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      background: linear-gradient(135deg, #ffe28a, #d99b1e);
+      color: #3a2300; box-shadow: inset 0 -2px 0 rgba(0, 0, 0, 0.15);
+    }
+
+    .backup-btn {
+      display: inline-flex; align-items: center; gap: 0.5rem;
+      padding: 0.6rem 0.95rem; border-radius: 12px;
+      font-size: 0.875rem; font-weight: 600; color: #dcecf8; cursor: pointer;
+      background: rgba(190, 225, 255, 0.1); border: 1px solid rgba(190, 225, 255, 0.28);
+    }
+    .backup-btn:hover { background: rgba(190, 225, 255, 0.18); }
+
+    /* ---------- Профили с аватарками ---------- */
+    body .profile-switch { border-radius: 999px; }
+    #btnDarina, #btnDenis { padding: 0.3rem 1rem 0.3rem 0.35rem; border-radius: 999px; }
+    .avatar {
+      width: 1.6rem; height: 1.6rem; border-radius: 50%;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 0.75rem; font-weight: 800;
+      box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.75);
+    }
+    .avatar-d { background: #d63a5c; color: #fff; }
+    .avatar-n { background: #8fd3ff; color: #06222f; }
+
+    /* ---------- Карточки со снежной шапкой ---------- */
+    #moviesGrid > div:not(.col-span-full),
+    #kpResultsContainer > div:not(.col-span-full) {
+      position: relative;
+      background: linear-gradient(180deg, #11303f 0%, #0c2230 100%);
+      border-color: rgba(170, 215, 245, 0.18);
+      box-shadow: 0 14px 26px -14px rgba(0, 0, 0, 0.7);
+    }
+    #moviesGrid > div:not(.col-span-full)::before,
+    #kpResultsContainer > div:not(.col-span-full)::before {
+      content: ""; position: absolute; top: 0; left: 0; right: 0;
+      height: 22px; z-index: 2; pointer-events: none;
+      transition: transform 3.5s ease-out, opacity 3.5s ease-out;
+      background: var(--cap) no-repeat top left / 100% 100%;
+    }
+    #moviesGrid .absolute.top-2,
+    #kpResultsContainer .absolute.top-2 { top: 1.75rem; }
+    @media (hover: hover) {
+      #moviesGrid > div:not(.col-span-full):hover::before,
+      #kpResultsContainer > div:not(.col-span-full):hover::before {
+        transform: translateY(16px); opacity: 0;
+        transition: transform 0.45s ease-in, opacity 0.45s ease-in;
+      }
+    }
+
+    /* ---------- Снег на шапке, панелях, вкладках и кнопке ---------- */
+    body header.glass-panel { padding-top: 1.2rem; }
+    header.glass-panel::before,
+    #sectionKpSearch::before,
+    #customMovieModal .glass-panel::before,
+    #randomNyModal .glass-panel::before {
+      content: ""; position: absolute; top: 0; left: 0; right: 0;
+      height: 13px; pointer-events: none;
+      background: var(--cap) repeat-x top left / 240px 100%;
+    }
+    #sectionKpSearch, #customMovieModal .glass-panel, #randomNyModal .glass-panel { position: relative; overflow: hidden; }
+    #tabWatched::before, #tabPlan::before, #tabKpSearch::before, .gift-btn::before, .random-btn::before {
+      content: ""; position: absolute; top: 0; left: 0; right: 0;
+      height: 8px; pointer-events: none;
+      background: var(--cap) no-repeat top left / 100% 100%;
+    }
+    body .from-pink-500.to-purple-600.gift-btn { position: relative; overflow: hidden; }
+
+    /* ---------- Анимация выпадения в рандомайзере ---------- */
+    @keyframes popPick {
+      0% { transform: scale(0.95); opacity: 0.5; }
+      60% { transform: scale(1.02); opacity: 1; }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    .pick-pop { animation: popPick 0.35s ease-out; }
+
+    /* ---------- Снег ---------- */
+    #snow {
+      position: fixed; inset: 0; width: 100%; height: 100%;
+      z-index: 40; pointer-events: none;
+    }
+    .snow-toggle, .music-toggle {
+      position: fixed; right: 1rem; bottom: 1rem; z-index: 45;
+      width: 2.75rem; height: 2.75rem; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      color: var(--ice); font-size: 1.1rem; cursor: pointer;
+      background: rgba(12, 33, 48, 0.9);
+      border: 1px solid rgba(190, 225, 255, 0.3);
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+    }
+    .snow-toggle[aria-pressed="false"] { color: #6f8ea3; }
+    .snow-toggle[aria-pressed="false"] i { opacity: 0.55; }
+    .music-toggle { right: 4.1rem; }
+    .music-toggle[aria-pressed="false"] { color: #6f8ea3; }
+    .music-toggle[aria-pressed="false"] i { opacity: 0.55; }
+    .music-toggle[aria-pressed="true"] {
+      color: var(--gold); border-color: rgba(242, 193, 78, 0.55);
+      box-shadow: 0 0 16px rgba(242, 193, 78, 0.4), 0 6px 18px rgba(0, 0, 0, 0.45);
+    }
+    .music-now {
+      position: fixed; right: 10.4rem; bottom: 1.2rem; z-index: 45;
+      max-width: calc(100vw - 12rem);
+      padding: 0.4rem 0.8rem; border-radius: 999px;
+      font-size: 0.8rem; font-weight: 600; color: #dcecf8; white-space: nowrap;
+      overflow: hidden; text-overflow: ellipsis;
+      background: rgba(12, 33, 48, 0.92);
+      border: 1px solid rgba(242, 193, 78, 0.35);
+      opacity: 0; transform: translateY(6px);
+      transition: opacity 0.4s, transform 0.4s; pointer-events: none;
+    }
+    .music-now.show { opacity: 1; transform: none; }
+
+    /* ---------- Сугроб внизу страницы и снегоуборочная машина ---------- */
+    .snow-ground {
+      position: relative; margin-top: 3rem; overflow: hidden;
+      -webkit-user-select: none; user-select: none;
+    }
+    .snow-ground .ground-text {
+      padding: 1.5rem 1rem 0.6rem; text-align: center;
+      font-family: 'Cormorant Garamond', Georgia, serif;
+      font-style: italic; font-weight: 600;
+      font-size: 1.35rem; line-height: 1.3; color: #cfe6f7;
+    }
+    .drift {
+      position: relative; height: 72px;
+      transform-origin: 50% 100%; touch-action: manipulation;
+    }
+    .drift svg { display: block; width: 100%; height: 100%; pointer-events: none; }
+    .drift svg path { pointer-events: auto; }
+    .plow {
+      position: absolute; left: 0; bottom: -8px; z-index: 3;
+      width: 190px; height: 80px;
+      transform: translateX(-240px); visibility: hidden; pointer-events: none;
+    }
+    .plow svg { display: block; width: 100%; height: 100%; overflow: visible; }
+    .plow .wheel { transform-box: fill-box; transform-origin: center; animation: spin 0.45s linear infinite; animation-play-state: paused; }
+    .plow.run .wheel { animation-play-state: running; }
+    .plow.run svg { animation: bob 0.28s ease-in-out infinite alternate; }
+    .plow .beacon { animation: beacon 0.5s steps(1, end) infinite; }
+    .plow .pile { transform-box: fill-box; transform-origin: 50% 100%; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    @keyframes bob { from { transform: translateY(0); } to { transform: translateY(-1.5px); } }
+    @keyframes beacon {
+      0%   { fill: #ffb800; filter: drop-shadow(0 0 6px #ffb800); }
+      50%  { fill: #7a5200; filter: none; }
+    }
+    @media (max-width: 520px) { .plow { width: 140px; height: 59px; } }
+
+    @media (prefers-reduced-motion: reduce) {
+      #garland .bulb { animation: none; }
+      .plow .wheel, .plow.run svg, .plow .beacon { animation: none; }
+      #moviesGrid > div:not(.col-span-full)::before,
+      #kpResultsContainer > div:not(.col-span-full)::before { transition: none; }
+    }
+  </style>
+</head>
+<body class="min-h-screen font-sans flex flex-col justify-between">
+
+  <!-- Снегопад (canvas) -->
+  <canvas id="snow" aria-hidden="true"></canvas>
+
+  <!-- ШАПКА -->
+  <header class="sticky top-0 z-50 glass-panel border-b border-gray-800/80 mb-12 px-4 py-3">
+    <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <div class="bauble" aria-hidden="true">
+          <i class="fa-solid fa-photo-film"></i>
+        </div>
+        <div>
+          <h1 class="brand-title">
+            Семейная кинотека
+          </h1>
+          <div id="cloudStatus" class="flex items-center gap-1.5 text-xs text-yellow-400 font-medium mt-1">
+            <span class="w-2 h-2 rounded-full bg-yellow-400 animate-pulse"></span>
+            <span>Подключение к облаку...</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <div id="nyCountdown" class="ny-chip hidden md:flex" aria-live="off"></div>
+
+        <!-- ПРОФИЛИ -->
+        <div class="profile-switch flex items-center bg-brand-input p-1 rounded-xl border border-brand-border">
+          <button id="btnDarina" onclick="switchUser('Дарина')" class="px-4 py-1.5 rounded-lg text-sm font-semibold transition-all flex items-center gap-2">
+            <span class="avatar avatar-d" aria-hidden="true">Д</span> Дарина
+          </button>
+          <button id="btnDenis" onclick="switchUser('Денис')" class="px-4 py-1.5 rounded-lg text-sm font-semibold transition-all flex items-center gap-2">
+            <span class="avatar avatar-n" aria-hidden="true">Д</span> Денис
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Гирлянда (рисуется скриптом) -->
+    <div id="garland" aria-hidden="true"></div>
+  </header>
+
+  <!-- ОСНОВНОЙ БЛОК -->
+  <main class="max-w-7xl mx-auto px-4 w-full flex-grow">
+
+    <!-- ВКЛАДКИ -->
+    <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
+      <div class="flex flex-wrap gap-2">
+        <button id="tabWatched" onclick="setTab('watched')" class="px-4 py-2 rounded-xl text-sm font-medium bg-brand-input border border-brand-border">
+          <i class="fa-solid fa-circle-check text-green-400 mr-1.5"></i> Просмотрено
+          <span id="countWatched" class="ml-1.5 px-2 py-0.5 text-xs rounded-full bg-gray-800 font-bold">0</span>
+        </button>
+        <button id="tabPlan" onclick="setTab('plan')" class="px-4 py-2 rounded-xl text-sm font-medium bg-brand-input border border-brand-border">
+          <i class="fa-solid fa-bookmark text-purple-400 mr-1.5"></i> Будем смотреть
+          <span id="countPlan" class="ml-1.5 px-2 py-0.5 text-xs rounded-full bg-gray-800 font-bold">0</span>
+        </button>
+        <button id="tabKpSearch" onclick="setTab('kpSearch')" class="px-4 py-2 rounded-xl text-sm font-medium bg-brand-kp text-white font-semibold shadow-lg">
+          <i class="fa-solid fa-magnifying-glass mr-1.5"></i> Поиск по Кинопоиску
+        </button>
+      </div>
+
+      <div class="flex flex-wrap items-center gap-2">
+        <button onclick="openRandomModal()" class="random-btn" title="Случайный новогодний фильм или мультфильм">
+          <span class="random-ico" aria-hidden="true"><i class="fa-solid fa-dice"></i></span> Новогодний рандом
+        </button>
+        <button onclick="downloadBackup()" class="backup-btn" title="Скачать все записи файлом на компьютер">
+          <i class="fa-solid fa-download"></i> Копия
+        </button>
+        <button onclick="openCustomModal()" class="gift-btn px-4 py-2 bg-gradient-to-r from-pink-500 to-purple-600 text-white rounded-xl text-sm font-semibold shadow-lg">
+          <span class="gift-ico" aria-hidden="true"><i class="fa-solid fa-gift"></i></span> Добавить фильм / YouTube
+        </button>
+      </div>
+    </div>
+
+    <!-- ПОИСК ПО КИНОПОИСКУ -->
+    <section id="sectionKpSearch" class="mb-8 glass-panel p-6 rounded-2xl border border-brand-border hidden">
+      <div class="flex flex-col md:flex-row items-center gap-4 mb-6">
+        <input type="text" id="kpSearchInput" placeholder="Введите название фильма на русском (например: Интерстеллар, Матрица, Форсаж)..." 
+          onkeydown="if(event.key==='Enter') triggerKpSearch()"
+          class="w-full bg-brand-input text-white px-4 py-3.5 rounded-xl border border-brand-border focus:outline-none">
+        <button onclick="triggerKpSearch()" class="w-full md:w-auto px-8 py-3.5 bg-brand-kp hover:bg-orange-600 text-white font-bold rounded-xl shadow">
+          Искать
+        </button>
+      </div>
+      <div id="kpResultsContainer" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+        <div class="col-span-full py-8 text-center text-gray-400">
+          Введите название фильма на русском языке для поиска по базе Кинопоиска.
+        </div>
+      </div>
+    </section>
+
+    <!-- СЕТКА СОХРАНЕННЫХ ФИЛЬМОВ И ВИДЕО -->
+    <section id="sectionSavedMovies">
+      <div id="moviesGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-5"></div>
+    </section>
+
+  </main>
+
+  <!-- СУГРОБ: три быстрых клика по снегу вызывают снегоуборщик -->
+  <footer class="snow-ground" id="snowGround">
+    <p class="ground-text">С Новым годом! Пусть в семье будет много хороших фильмов и тёплых вечеров.</p>
+    <div class="drift" id="drift">
+      <svg viewBox="0 0 1440 72" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+        <path fill="#e9f4fc" d="M0 72V34C90 8 180 10 270 30S450 52 540 28S720 4 810 26S990 50 1080 26S1260 6 1350 24L1440 30V72Z"><title>Тройной клик: вызвать снегоуборщик</title></path>
+      </svg>
+    </div>
+    <div class="plow" id="plow" aria-hidden="true">
+      <svg viewBox="0 0 190 80" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 28h62v14H12z" fill="#d96f00"/>
+        <path d="M10 26h66v4H10z" fill="#a85500"/>
+        <path d="M10 42h130v14H10z" fill="#e88400"/>
+        <path d="M78 42V24l10-10h24l10 16v12z" fill="#f59a14"/>
+        <path d="M90 18h20l8 12H90z" fill="#bfe6ff"/>
+        <path d="M122 34h18l2 8v14h-20z" fill="#f59a14"/>
+        <rect class="beacon" x="94" y="8" width="12" height="6" rx="2" fill="#ffb800"/>
+        <rect x="136" y="46" width="16" height="6" fill="#6b6b6b"/>
+        <path d="M150 24Q166 14 176 18L172 70Q160 70 150 62Z" fill="#ffd23f" stroke="#b87400" stroke-width="2"/>
+        <path d="M153 38L174 31M153 50L173 43M153 62L172 55" stroke="#1b1b1b" stroke-width="3" opacity=".75"/>
+        <g class="wheel"><circle cx="36" cy="60" r="12" fill="#1b1b1b"/><circle cx="36" cy="60" r="5" fill="#9aa7b0"/><path d="M36 50v20M26 60h20" stroke="#cdd6dc" stroke-width="2"/></g>
+        <g class="wheel"><circle cx="104" cy="60" r="12" fill="#1b1b1b"/><circle cx="104" cy="60" r="5" fill="#9aa7b0"/><path d="M104 50v20M94 60h20" stroke="#cdd6dc" stroke-width="2"/></g>
+        <ellipse class="pile" cx="180" cy="70" rx="10" ry="8" fill="#f4faff"/>
+      </svg>
+    </div>
+  </footer>
+
+  <!-- Новогодняя музыка -->
+  <div id="musicNow" class="music-now" aria-live="polite"></div>
+  <button id="musicNext" type="button" class="music-toggle" style="right: 7.2rem;" aria-label="Сменить песню" title="Следующая песня">
+    <i class="fa-solid fa-forward-step"></i>
+  </button>
+  <button id="musicToggle" type="button" class="music-toggle" style="right: 4.1rem;" aria-pressed="false" aria-label="Включить новогоднюю музыку" title="Новогодняя музыка">
+    <i class="fa-solid fa-music"></i>
+  </button>
+
+  <!-- Выключатель снега -->
+  <button id="snowToggle" type="button" class="snow-toggle" aria-pressed="true" aria-label="Выключить снег" title="Снег">
+    <i class="fa-solid fa-snowflake"></i>
+  </button>
+
+  <!-- МОДАЛКА ДОБАВЛЕНИЯ -->
+  <div id="customMovieModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="glass-panel p-6 rounded-2xl w-full max-w-md border border-brand-border">
+      <h3 class="text-lg font-bold mb-4 flex items-center justify-between">
+        <span>Добавить элемент</span>
+        <button onclick="closeCustomModal()" class="text-gray-400 hover:text-white"><i class="fa-solid fa-xmark"></i></button>
+      </h3>
+      <form onsubmit="submitCustomMovie(event)" class="space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-gray-400 mb-1">Название фильма или видео *</label>
+          <input type="text" id="custTitle" required class="w-full bg-brand-input border border-brand-border rounded-xl px-3 py-2 text-sm">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-400 mb-1">Ссылка на YouTube или постер (URL)</label>
+          <input type="url" id="custInputUrl" placeholder="https://youtube.com/watch?v=... или ссылка на картинку" class="w-full bg-brand-input border border-brand-border rounded-xl px-3 py-2 text-sm">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-400 mb-1">Статус</label>
+          <select id="custStatus" class="w-full bg-brand-input border border-brand-border rounded-xl px-3 py-2 text-sm">
+            <option value="plan">Будем смотреть</option>
+            <option value="watched">Просмотрено</option>
+          </select>
+        </div>
+        <button type="submit" class="w-full py-3 bg-gradient-to-r from-pink-500 to-purple-600 font-bold rounded-xl shadow">Сохранить</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- МОДАЛКА НОВОГОДНЕГО РАНДОМА -->
+  <div id="randomNyModal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-center justify-center p-4" onclick="if(event.target===this) closeRandomModal()">
+    <div class="glass-panel p-6 pt-7 rounded-2xl w-full max-w-lg border border-brand-border shadow-2xl">
+      <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center gap-2.5">
+          <span class="w-9 h-9 rounded-xl bg-amber-400/15 border border-amber-300/35 text-amber-300 flex items-center justify-center">
+            <i class="fa-solid fa-wand-magic-sparkles"></i>
+          </span>
+          <div>
+            <h3 class="text-lg font-bold text-white leading-tight">Что посмотреть под Новый год?</h3>
+            <p class="text-xs text-gray-400">Случайный выбор фильмов и мультфильмов</p>
+          </div>
+        </div>
+        <button onclick="closeRandomModal()" class="text-gray-400 hover:text-white p-1.5" aria-label="Закрыть">
+          <i class="fa-solid fa-xmark text-lg"></i>
+        </button>
+      </div>
+
+      <!-- Фильтр категории -->
+      <div class="grid grid-cols-3 gap-2 bg-brand-input p-1 rounded-xl border border-brand-border mb-4">
+        <button type="button" id="rndCatAll" onclick="setRandomCategory('all')" class="py-1.5 px-2 rounded-lg text-xs font-bold transition">
+          Всё подряд
+        </button>
+        <button type="button" id="rndCatMovie" onclick="setRandomCategory('movie')" class="py-1.5 px-2 rounded-lg text-xs font-bold transition">
+          <i class="fa-solid fa-film mr-1"></i> Фильмы
+        </button>
+        <button type="button" id="rndCatCartoon" onclick="setRandomCategory('cartoon')" class="py-1.5 px-2 rounded-lg text-xs font-bold transition">
+          <i class="fa-solid fa-snowman mr-1"></i> Мультики
+        </button>
+      </div>
+
+      <!-- Карточка результата -->
+      <div id="randomResultCard" class="bg-brand-card border border-brand-border rounded-2xl p-5 mb-4 min-h-[168px] flex flex-col justify-between">
+        <div>
+          <div class="flex items-center justify-between gap-2 mb-2">
+            <span id="rndBadgeType" class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-400/20 text-amber-300 border border-amber-300/30">
+              Новогодняя подборка
+            </span>
+            <span id="rndYear" class="text-xs font-bold text-gray-400"></span>
+          </div>
+          <h4 id="rndTitle" class="text-xl font-extrabold text-white mb-2">Нажмите «Крутить», чтобы выбрать!</h4>
+          <p id="rndDesc" class="text-sm text-gray-400 leading-relaxed">
+            Подберём уютный фильм или мультфильм для новогоднего настроения.
+          </p>
+        </div>
+      </div>
+
+      <!-- Кнопки управления -->
+      <div class="flex flex-col sm:flex-row gap-2.5">
+        <button type="button" id="btnSpinRandom" onclick="spinRandomNy()" class="flex-1 py-3 px-4 rounded-xl font-bold text-sm text-white shadow-lg flex items-center justify-center gap-2" style="background: linear-gradient(135deg, #e0334b 0%, #a3122c 100%);">
+          <i class="fa-solid fa-dice"></i> Крутить ещё раз
+        </button>
+        <button type="button" id="btnAddRandomPlan" onclick="addRandomToPlan()" disabled class="py-3 px-4 rounded-xl font-bold text-sm bg-purple-600 hover:bg-purple-700 disabled:opacity-40 disabled:cursor-not-allowed transition flex items-center justify-center gap-1.5">
+          <i class="fa-solid fa-bookmark"></i> В «Будем смотреть»
+        </button>
+        <button type="button" id="btnSearchRandomKp" onclick="searchRandomOnKp()" disabled class="py-3 px-4 rounded-xl font-bold text-sm bg-brand-kp hover:bg-orange-600 text-white disabled:opacity-40 disabled:cursor-not-allowed transition flex items-center justify-center gap-1.5" title="Найти постер на Кинопоиске">
+          <i class="fa-solid fa-magnifying-glass"></i> КП
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // FIREBASE КОНФИГУРАЦИЯ
+    const firebaseConfig = {
+      apiKey: "AIzaSyAnnPp_BnWP9hjPiZjInNM_S00zHk4oqg",
+      authDomain: "movies-denis-darina.firebaseapp.com",
+      projectId: "movies-denis-darina",
+      storageBucket: "movies-denis-darina.firebasestorage.app",
+      messagingSenderId: "313628413532",
+      appId: "1:313628413532:web:b37f004bf86ead3efe2099",
+      measurementId: "G-1XTTS8HB1M"
+    };
+
+    // ВАШ КЛЮЧ KINOPOISK API UNOFFICIAL
+    const KP_API_KEY = "f5cc3589-f3e8-44e4-9264-6f8b31f9c036";
+
+    let db = null;
+    let currentUser = localStorage.getItem('dd_user') || 'Дарина';
+    let currentTab = 'watched'; // 'watched', 'plan', 'kpSearch'
+    let savedMovies = [];
+
+    window.addEventListener('DOMContentLoaded', () => {
+      initFirebase();
+      switchUser(currentUser);
+      setTab('watched');
+    });
+
+    function initFirebase() {
+      try {
+        if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+        db = firebase.firestore();
+        document.getElementById('cloudStatus').innerHTML = `
+          <span class="w-2 h-2 rounded-full bg-green-400"></span>
+          <span class="text-green-400">Облако синхронизировано</span>`;
+        bindRealtimeSync();
+      } catch(e) {
+        document.getElementById('cloudStatus').innerHTML = `
+          <span class="w-2 h-2 rounded-full bg-red-400"></span>
+          <span class="text-red-400">Ошибка подключения к облаку</span>`;
+      }
+    }
+
+    function switchUser(user) {
+      currentUser = user;
+      localStorage.setItem('dd_user', user);
+      const btnDarina = document.getElementById('btnDarina');
+      const btnDenis = document.getElementById('btnDenis');
+
+      if(user === 'Дарина') {
+        btnDarina.className = "px-4 py-1.5 rounded-lg text-sm font-semibold bg-pink-500 text-white shadow-lg glow-darina flex items-center gap-2";
+        btnDenis.className = "px-4 py-1.5 rounded-lg text-sm font-semibold text-gray-400 flex items-center gap-2";
+      } else {
+        btnDenis.className = "px-4 py-1.5 rounded-lg text-sm font-semibold bg-cyan-400 text-gray-950 shadow-lg glow-denis flex items-center gap-2";
+        btnDarina.className = "px-4 py-1.5 rounded-lg text-sm font-semibold text-gray-400 flex items-center gap-2";
+      }
+    }
+
+    function setTab(tab) {
+      currentTab = tab;
+      const tabW = document.getElementById('tabWatched');
+      const tabP = document.getElementById('tabPlan');
+      const tabKp = document.getElementById('tabKpSearch');
+      const secKp = document.getElementById('sectionKpSearch');
+      const secGrid = document.getElementById('sectionSavedMovies');
+
+      tabW.className = "px-4 py-2 rounded-xl text-sm font-medium bg-brand-input border border-brand-border";
+      tabP.className = "px-4 py-2 rounded-xl text-sm font-medium bg-brand-input border border-brand-border";
+      tabKp.className = "px-4 py-2 rounded-xl text-sm font-medium bg-brand-input border border-brand-border";
+
+      secKp.classList.add('hidden');
+      secGrid.classList.remove('hidden');
+
+      if(tab === 'watched') {
+        tabW.className = "px-4 py-2 rounded-xl text-sm font-bold bg-green-500 text-gray-950 shadow-lg";
+      } else if(tab === 'plan') {
+        tabP.className = "px-4 py-2 rounded-xl text-sm font-bold bg-purple-500 text-white shadow-lg";
+      } else if(tab === 'kpSearch') {
+        tabKp.className = "px-4 py-2 rounded-xl text-sm font-bold bg-brand-kp text-white shadow-lg";
+        secKp.classList.remove('hidden');
+        secGrid.classList.add('hidden');
+      }
+      renderSavedMovies();
+    }
+
+    // ПОИСК ПО КИНОПОИСКУ (KINOPOISK API UNOFFICIAL)
+    async function triggerKpSearch() {
+      const query = document.getElementById('kpSearchInput').value.trim();
+      const container = document.getElementById('kpResultsContainer');
+      if(!query) return;
+
+      container.innerHTML = `<div class="col-span-full py-8 text-center text-gray-400"><i class="fa-solid fa-spinner fa-spin text-2xl mb-2"></i>Поиск по Кинопоиску...</div>`;
+
+      try {
+        const res = await fetch(`https://kinopoiskapiunofficial.tech/api/v2.1/films/search-by-keyword?keyword=${encodeURIComponent(query)}`, {
+          headers: {
+            'X-API-KEY': KP_API_KEY,
+            'Content-Type': 'application/json',
+          }
+        });
+        const data = await res.json();
+
+        if (!data.films || data.films.length === 0) {
+          container.innerHTML = `<div class="col-span-full py-8 text-center text-gray-400">Ничего не найдено. Попробуйте другое название.</div>`;
+          return;
+        }
+
+        container.innerHTML = data.films.slice(0, 10).map(m => {
+          const title = m.nameRu || m.nameEn || 'Без названия';
+          const year = m.year || '2024';
+          const rating = m.rating || m.ratingKinopoisk || '7.5';
+          const poster = m.posterUrlPreview || m.posterUrl || 'https://images.unsplash.com/photo-1485846234645-a62644f84728?w=300&auto=format&fit=crop&q=80';
+
+          return `
+            <div class="bg-brand-card border border-brand-border rounded-xl overflow-hidden shadow-lg flex flex-col justify-between">
+              <div class="relative h-64 bg-gray-900">
+                <img src="${poster}" class="w-full h-full object-cover" onerror="this.src='https://images.unsplash.com/photo-1485846234645-a62644f84728?w=300&auto=format&fit=crop&q=80'">
+                <div class="absolute top-2 right-2 kp-badge text-white font-extrabold text-xs px-2 py-1 rounded-md shadow">
+                  ★ ${rating}
+                </div>
+                <div class="absolute top-2 left-2 bg-black/70 text-white text-[10px] font-bold px-2 py-0.5 rounded">
+                  ${year}
+                </div>
+              </div>
+              <div class="p-3 flex-grow flex flex-col justify-between">
+                <h4 class="font-bold text-sm text-white line-clamp-1 mb-2">${title}</h4>
+                <div class="flex flex-col gap-1.5">
+                  <button onclick="addMovieFromApi('${escapeHtml(title)}', '${poster}', 'watched')" class="w-full py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-bold transition">
+                    + Просмотрено
+                  </button>
+                  <button onclick="addMovieFromApi('${escapeHtml(title)}', '${poster}', 'plan')" class="w-full py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold transition">
+                    + Будем смотреть
+                  </button>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
+      } catch(e) {
+        container.innerHTML = `<div class="col-span-full py-8 text-center text-red-400">Ошибка при подключении к Kinopoisk API.</div>`;
+      }
+    }
+
+    function addMovieFromApi(title, poster, status) {
+      const item = {
+        id: 'm_' + Date.now() + Math.random().toString(36).substring(2, 7),
+        title: title,
+        poster: poster,
+        ytUrl: '',
+        status: status,
+        addedBy: currentUser,
+        createdAt: new Date().toISOString()
+      };
+      saveToCloud(item);
+      alert(`Фильм "${title}" успешно добавлен!`);
+    }
+
+    function extractYoutubeId(url) {
+      const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+      const match = url.match(regExp);
+      return (match && match[2].length === 11) ? match[2] : null;
+    }
+
+    function saveToCloud(item) {
+      if(db) {
+        db.collection("movies").doc(item.id).set(item);
+      }
+    }
+
+    function setCloudStatus(kind, text) {
+      const el = document.getElementById('cloudStatus');
+      if (!el) return;
+      const c = kind === 'ok' ? 'green' : 'red';
+      el.innerHTML = `<span class="w-2 h-2 rounded-full bg-${c}-400"></span><span class="text-${c}-400">${text}</span>`;
+    }
+
+    function normStatus(m) {
+      const s = String((m && m.status) || '').trim().toLowerCase();
+      return ['watched', 'viewed', 'seen', 'просмотрено', 'просмотрен'].includes(s) ? 'watched' : 'plan';
+    }
+
+    function bindRealtimeSync() {
+      if(db) {
+        db.collection("movies").onSnapshot((snapshot) => {
+          savedMovies = [];
+          snapshot.forEach(doc => {
+            const d = doc.data();
+            if (!d.id) d.id = doc.id;
+            savedMovies.push(d);
+          });
+          setCloudStatus('ok', `Облако синхронизировано · фильмов в базе: ${snapshot.size}`);
+          renderSavedMovies();
+        }, (err) => {
+          console.error('Firestore:', err);
+          setCloudStatus('err', 'Нет доступа к базе: ' + (err.code || err.message));
+        });
+      }
+    }
+
+    function renderSavedMovies() {
+      const activeList = savedMovies.filter(m => normStatus(m) === currentTab);
+      document.getElementById('countWatched').innerText = savedMovies.filter(m => normStatus(m) === 'watched').length;
+      document.getElementById('countPlan').innerText = savedMovies.filter(m => normStatus(m) === 'plan').length;
+
+      const grid = document.getElementById('moviesGrid');
+
+      if(activeList.length === 0) {
+        grid.innerHTML = `<div class="col-span-full py-16 text-center text-gray-500">Список пуст. Воспользуйтесь поиском по Кинопоиску или добавьте элемент вручную.</div>`;
+        return;
+      }
+
+      grid.innerHTML = activeList.map(m => `
+        <div class="bg-brand-card border border-brand-border rounded-xl overflow-hidden shadow-lg flex flex-col justify-between">
+          <div class="relative h-64 bg-gray-900">
+            <img src="${m.poster || 'https://images.unsplash.com/photo-1485846234645-a62644f84728?w=300&auto=format&fit=crop&q=80'}" class="w-full h-full object-cover" onerror="this.src='https://images.unsplash.com/photo-1485846234645-a62644f84728?w=300&auto=format&fit=crop&q=80'">
+            <div class="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[10px] font-bold ${m.addedBy === 'Дарина' ? 'bg-pink-500 text-white' : 'bg-cyan-400 text-gray-950'}">
+              ${m.addedBy || 'Семья'}
+            </div>
+            ${m.ytUrl ? `<a href="${m.ytUrl}" target="_blank" class="absolute bottom-2 right-2 bg-red-600 text-white p-2.5 rounded-full shadow-lg hover:scale-110 transition"><i class="fa-brands fa-youtube text-base"></i></a>` : ''}
+          </div>
+          <div class="p-3 flex-grow flex flex-col justify-between">
+            <h4 class="font-bold text-sm text-white line-clamp-1">${m.title || 'Без названия'}</h4>
+            <div class="flex items-center justify-between mt-3 pt-2 border-t border-gray-800">
+              <button onclick="toggleStatus('${m.id}')" class="text-xs text-gray-400 hover:text-white transition"><i class="fa-solid fa-arrows-rotate mr-1"></i> Перенести</button>
+              <button onclick="deleteItem('${m.id}')" class="text-xs text-red-400 hover:text-red-300 transition"><i class="fa-solid fa-trash"></i></button>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function toggleStatus(id) {
+      const item = savedMovies.find(m => m.id === id);
+      if(!item) return;
+      item.status = normStatus(item) === 'watched' ? 'plan' : 'watched';
+      saveToCloud(item);
+    }
+
+    function deleteItem(id) {
+      if(confirm("Удалить из списка?") && db) {
+        db.collection("movies").doc(id).delete();
+      }
+    }
+
+    function openCustomModal() { document.getElementById('customMovieModal').classList.remove('hidden'); }
+    function closeCustomModal() { document.getElementById('customMovieModal').classList.add('hidden'); }
+
+    function submitCustomMovie(e) {
+      e.preventDefault();
+      const title = document.getElementById('custTitle').value;
+      const inputUrl = document.getElementById('custInputUrl').value.trim();
+      const status = document.getElementById('custStatus').value;
+
+      let poster = 'https://images.unsplash.com/photo-1485846234645-a62644f84728?w=300&auto=format&fit=crop&q=80';
+      let ytUrl = '';
+
+      const ytId = extractYoutubeId(inputUrl);
+      if (ytId) {
+        poster = `https://img.youtube.com/vi/${ytId}/hqdefault.jpg`;
+        ytUrl = inputUrl;
+      } else if (inputUrl) {
+        poster = inputUrl;
+      }
+
+      const item = {
+        id: 'm_' + Date.now() + Math.random().toString(36).substring(2, 7),
+        title: title,
+        poster: poster,
+        ytUrl: ytUrl,
+        status: status,
+        addedBy: currentUser,
+        createdAt: new Date().toISOString()
+      };
+
+      saveToCloud(item);
+      closeCustomModal();
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+    }
+
+    // ---------- НОВОГОДНИЙ РАНДОМАЙЗЕР ----------
+    const NY_CATALOG = [
+      // Фильмы
+      { title: 'Один дома', year: 1990, type: 'movie', desc: 'Кевин остаётся один в большом доме на Рождество и защищает его от «Мокрых бандитов».' },
+      { title: 'Один дома 2: Потерявшийся в Нью-Йорке', year: 1992, type: 'movie', desc: 'Кевин снова путает самолёты и проводит рождественские каникулы в отеле «Плаза».' },
+      { title: 'Ирония судьбы, или С лёгким паром!', year: 1975, type: 'movie', desc: 'Главная советская новогодняя классика о бане, билете в Ленинград и судьбоносной встрече.' },
+      { title: 'Чародеи', year: 1982, type: 'movie', desc: 'Новогодняя музыкальная сказка про институт волшебства НУИНУ, «Три белых коня» и настоящую любовь.' },
+      { title: 'Карнавальная ночь', year: 1956, type: 'movie', desc: 'Молодые артисты Дома культуры спасают новогодний вечер от скучного товарища Огурцова.' },
+      { title: 'Гарри Поттер и философский камень', year: 2001, type: 'movie', desc: 'Первое Рождество в Хогвартсе, гигантские ёлки в Большом зале и свитер от миссис Уизли.' },
+      { title: 'Гринч — похититель Рождества', year: 2000, type: 'movie', desc: 'Зелёный ворчун в исполнении Джима Керри пытается украсть праздник у жителей Ктограда.' },
+      { title: 'Отпуск по обмену', year: 2006, type: 'movie', desc: 'Две девушки меняются домами перед Рождеством — заснеженная английская деревня против солнечной Калифорнии.' },
+      { title: 'Реальная любовь', year: 2003, type: 'movie', desc: 'Девять переплетающихся историй о любви в предрождественском Лондоне.' },
+      { title: 'Эльф', year: 2003, type: 'movie', desc: 'Добродушный парень, выросший среди эльфов Санты, отправляется в Нью-Йорк искать своего отца.' },
+      { title: 'Рождественские хроники', year: 2018, type: 'movie', desc: 'Брат и сестра случайно ломают сани Санта-Клауса и помогают ему спасти Рождество за одну ночь.' },
+      { title: 'Кудряшка Сью', year: 1991, type: 'movie', desc: 'Тёплая рождественская комедия о бродяге Билле и маленькой Сью, чья жизнь меняется перед праздниками.' },
+      { title: 'Семьянин', year: 2000, type: 'movie', desc: 'Успешный бизнесмен просыпается в Рождество в альтернативной жизни — с семьёй, детьми и без миллионов.' },
+      { title: 'Крепкий орешек', year: 1988, type: 'movie', desc: 'Для тех, кто считает, что лучший новогодний боевик — это Джон Макклейн в небоскрёбе Накатоми.' },
+      { title: 'Ёлки', year: 2010, type: 'movie', desc: 'Новогодний альманах из разных городов России, объединённый теорией шести рукопожатий.' },
+      { title: 'Морозко', year: 1964, type: 'movie', desc: 'Уютная зимняя сказка Александра Роу про Настеньку, Иванушку и волшебника Морозко.' },
+      { title: 'Вечера на хуторе близ Диканьки', year: 1961, type: 'movie', desc: 'Волшебная ночь перед Рождеством с кузнецом Вакулой, черевичками и колядками.' },
+
+      // Мультфильмы
+      { title: 'Клаус', year: 2019, type: 'cartoon', desc: 'Потрясающе красивый мультфильм о ленивом почтальоне и таинственном леснике, придумавших традицию дарить игрушки.' },
+      { title: 'Полярный экспресс', year: 2004, type: 'cartoon', desc: 'Волшебный поезд увозит мальчика на Северный полюс в канун Рождества.' },
+      { title: 'Секретная служба Санта-Клауса', year: 2011, type: 'cartoon', desc: 'Как Санта успевает развезти миллиарды подарков за одну ночь — и что делать, если забыли одного ребёнка.' },
+      { title: 'Холодное сердце', year: 2013, type: 'cartoon', desc: 'Зимняя сказка про Эльзу, Анну, снеговика Олафа и вечную зиму в Эренделле.' },
+      { title: 'Хранители снов', year: 2012, type: 'cartoon', desc: 'Ледяной Джек, Санта-Клаус, Пасхальный кролик и Зубная фея объединяются против Кромешника.' },
+      { title: 'Гринч', year: 2018, type: 'cartoon', desc: 'Яркая современная анимация про зелёного интроверта Гринча и его верного пса Макса.' },
+      { title: 'Зима в Простоквашино', year: 1984, type: 'cartoon', desc: 'Классика с песней «Кабы не было зимы», телевизором и новогодним столом в деревне.' },
+      { title: 'Падал прошлогодний снег', year: 1983, type: 'cartoon', desc: 'Пластилиновый шедевр про мужичка, которого жена послала в лес за ёлкой.' },
+      { title: 'Щелкунчик', year: 1973, type: 'cartoon', desc: 'Волшебный советский мультфильм на бессмертную музыку П. И. Чайковского.' },
+      { title: 'Двенадцать месяцев', year: 1956, type: 'cartoon', desc: 'Сказка Маршака о падчерице, подснежниках в январе и встрече всех двенадцати братьев-месяцев у костра.' },
+      { title: 'Снежная королева', year: 1957, type: 'cartoon', desc: 'Храбрая Герда отправляется в ледяной чертог, чтобы спасти Кая.' },
+      { title: 'Рождественская история', year: 2009, type: 'cartoon', desc: 'Экранизация повести Диккенса с Джимом Керри о скупом Эбенезере Скрудже и трёх духах Рождества.' },
+      { title: 'Анастасия', year: 1997, type: 'cartoon', desc: 'Зимний Санкт-Петербург, музыкальный вальс и большое путешествие в Париж.' },
+      { title: 'Олаф и холодное приключение', year: 2017, type: 'cartoon', desc: 'Снеговик Олаф отправляется по домам Эренделла, чтобы собрать лучшие праздничные традиции для Анны и Эльзы.' },
+      { title: 'Снеговик-почтовик', year: 1955, type: 'cartoon', desc: 'Добрый советский мультфильм о снеговике, который отнёс письмо детей Деду Морозу.' }
+    ];
+
+    let randomCategory = 'all'; // 'all' | 'movie' | 'cartoon'
+    let currentRandomPick = null;
+    let spinTimer = null;
+    let lastPickTitle = '';
+
+    function openRandomModal() {
+      document.getElementById('randomNyModal').classList.remove('hidden');
+      setRandomCategory(randomCategory);
+      spinRandomNy();
+    }
+
+    function closeRandomModal() {
+      if (spinTimer) { clearInterval(spinTimer); spinTimer = null; }
+      document.getElementById('randomNyModal').classList.add('hidden');
+    }
+
+    function setRandomCategory(cat) {
+      randomCategory = cat;
+      const map = { all: 'rndCatAll', movie: 'rndCatMovie', cartoon: 'rndCatCartoon' };
+      Object.keys(map).forEach(k => {
+        const el = document.getElementById(map[k]);
+        if (!el) return;
+        if (k === cat) {
+          el.className = 'py-1.5 px-2 rounded-lg text-xs font-bold bg-amber-400 text-gray-950 shadow transition';
+        } else {
+          el.className = 'py-1.5 px-2 rounded-lg text-xs font-semibold text-gray-400 hover:text-white transition';
+        }
+      });
+    }
+
+    function getFilteredCatalog() {
+      if (randomCategory === 'all') return NY_CATALOG;
+      return NY_CATALOG.filter(item => item.type === randomCategory);
+    }
+
+    function renderRandomCard(item, isFinal) {
+      const card = document.getElementById('randomResultCard');
+      const badge = document.getElementById('rndBadgeType');
+      const year = document.getElementById('rndYear');
+      const title = document.getElementById('rndTitle');
+      const desc = document.getElementById('rndDesc');
+
+      if (item.type === 'cartoon') {
+        badge.textContent = 'Мультфильм';
+        badge.className = 'px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-cyan-400/20 text-cyan-300 border border-cyan-300/30';
+      } else {
+        badge.textContent = 'Фильм';
+        badge.className = 'px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-400/20 text-amber-300 border border-amber-300/30';
+      }
+
+      year.textContent = item.year + ' г.';
+      title.textContent = item.title;
+      desc.textContent = isFinal ? item.desc : 'Перемешиваем новогоднюю полку...';
+
+      if (isFinal) {
+        card.classList.remove('pick-pop');
+        void card.offsetWidth;
+        card.classList.add('pick-pop');
+      }
+    }
+
+    function spinRandomNy() {
+      const pool = getFilteredCatalog();
+      if (!pool.length) return;
+
+      if (spinTimer) clearInterval(spinTimer);
+      const btnSpin = document.getElementById('btnSpinRandom');
+      const btnAdd = document.getElementById('btnAddRandomPlan');
+      const btnKp = document.getElementById('btnSearchRandomKp');
+
+      btnSpin.disabled = true;
+      btnAdd.disabled = true;
+      btnKp.disabled = true;
+
+      let ticks = 0;
+      const totalTicks = 12;
+
+      spinTimer = setInterval(() => {
+        ticks++;
+        const temp = pool[Math.floor(Math.random() * pool.length)];
+        renderRandomCard(temp, false);
+
+        if (ticks >= totalTicks) {
+          clearInterval(spinTimer);
+          spinTimer = null;
+
+          let finalPick = pool[Math.floor(Math.random() * pool.length)];
+          if (pool.length > 1 && finalPick.title === lastPickTitle) {
+            finalPick = pool[(pool.indexOf(finalPick) + 1) % pool.length];
+          }
+          lastPickTitle = finalPick.title;
+          currentRandomPick = finalPick;
+
+          renderRandomCard(finalPick, true);
+          btnSpin.disabled = false;
+          btnAdd.disabled = false;
+          btnKp.disabled = false;
+        }
+      }, 65);
+    }
+
+    function addRandomToPlan() {
+      if (!currentRandomPick) return;
+      const item = {
+        id: 'm_' + Date.now() + Math.random().toString(36).substring(2, 7),
+        title: currentRandomPick.title,
+        poster: 'https://images.unsplash.com/photo-1512389142860-9c449e58a543?w=400&auto=format&fit=crop&q=80',
+        ytUrl: '',
+        status: 'plan',
+        addedBy: currentUser,
+        createdAt: new Date().toISOString()
+      };
+      saveToCloud(item);
+      alert(`«${currentRandomPick.title}» добавлен в список «Будем смотреть»!`);
+      closeRandomModal();
+      setTab('plan');
+    }
+
+    function searchRandomOnKp() {
+      if (!currentRandomPick) return;
+      const title = currentRandomPick.title;
+      closeRandomModal();
+      setTab('kpSearch');
+      const input = document.getElementById('kpSearchInput');
+      input.value = title;
+      triggerKpSearch();
+    }
+  </script>
+
+  <!-- Резервная копия: скачать все записи файлом. Только чтение, база не меняется. -->
+  <script>
+  function downloadBackup() {
+    var list = (typeof savedMovies !== 'undefined') ? savedMovies : [];
+    if (!list.length) { alert('Пока нечего сохранять: записи ещё не загрузились или список пуст.'); return; }
+    var d = new Date(), pad = function (n) { return (n < 10 ? '0' : '') + n; };
+    var name = 'kinoteka-backup-' + d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + '.json';
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([JSON.stringify(list, null, 2)], { type: 'application/json' }));
+    a.download = name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
+  }
+  </script>
+
+  <!-- НОВОГОДНЕЕ ОФОРМЛЕНИЕ: снег, гирлянда, счётчик. С базой данных не связано. -->
+  <script>
+  (function () {
+    // ---------- Снегопад ----------
+    var canvas = document.getElementById('snow');
+    var toggle = document.getElementById('snowToggle');
+    if (canvas && canvas.getContext) {
+      var ctx = canvas.getContext('2d');
+      var mq = window.matchMedia('(prefers-reduced-motion: reduce)');
+      var enabled = true;
+      try { enabled = localStorage.getItem('dd_snow') !== 'off'; } catch (e) {}
+      var w = 0, h = 0, flakes = [], raf = 0, last = 0, t = 0, wind = 0;
+      var bits = [];
+      var px = -999, py = -999, pOn = false, tx = 0, ty = 0;
+
+      function addBit(x, y, vx, vy, max, r, g) {
+        if (bits.length > 500) bits.shift();
+        bits.push({ x: x, y: y, vx: vx, vy: vy, life: max, max: max, r: r, g: g });
+      }
+      function puff(x, y, n) {
+        for (var i = 0; i < n; i++) {
+          var a = Math.random() * 6.283, s = 40 + Math.random() * 120;
+          addBit(x, y, Math.cos(a) * s, Math.sin(a) * s - 30, 0.5 + Math.random() * 0.4, 1 + Math.random() * 1.8, 260);
+        }
+      }
+      window.ddSnowSpray = function (x, y, n, dir) {
+        if (!raf) return;
+        for (var i = 0; i < n; i++) {
+          addBit(x + Math.random() * 6 - 3, y + Math.random() * 12 - 6,
+                 dir * (60 + Math.random() * 200) + (Math.random() * 40 - 20),
+                 -(60 + Math.random() * 230), 0.6 + Math.random() * 0.6, 1 + Math.random() * 2.2, 520);
+        }
+      };
+
+      window.addEventListener('pointermove', function (e) {
+        px = e.clientX; py = e.clientY; pOn = true;
+        if (e.pointerType === 'mouse' && raf) {
+          var dx = px - tx, dy = py - ty;
+          if (dx * dx + dy * dy > 400) {
+            tx = px; ty = py;
+            addBit(px + Math.random() * 6 - 3, py + Math.random() * 6 - 3,
+                   Math.random() * 30 - 15, Math.random() * 20 - 5, 0.7 + Math.random() * 0.5, 0.8 + Math.random() * 1.2, 70);
+          }
+        }
+      }, { passive: true });
+      window.addEventListener('pointerup', function (e) { if (e.pointerType !== 'mouse') pOn = false; }, { passive: true });
+      document.documentElement.addEventListener('pointerleave', function () { pOn = false; });
+      window.addEventListener('pointerdown', function (e) { if (raf) puff(e.clientX, e.clientY, 10); }, { passive: true });
+
+      function spawn(anywhere) {
+        var z = Math.random();
+        return {
+          x: Math.random() * w,
+          y: anywhere ? Math.random() * h : -8 - Math.random() * 40,
+          z: z,
+          r: 0.7 + z * z * 3,
+          vy: 18 + z * 55,
+          ph: Math.random() * 6.283,
+          sp: 0.4 + Math.random() * 0.9,
+          amp: 6 + z * 16,
+          ex: 0, ey: 0
+        };
+      }
+
+      function resize() {
+        var dpr = Math.min(window.devicePixelRatio || 1, 2);
+        w = window.innerWidth; h = window.innerHeight;
+        canvas.width = Math.round(w * dpr); canvas.height = Math.round(h * dpr);
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        var target = Math.round(Math.min(200, Math.max(60, (w * h) / 11000)));
+        while (flakes.length < target) flakes.push(spawn(true));
+        flakes.length = Math.min(flakes.length, target);
+        if (enabled && mq.matches) draw();
+      }
+
+      function draw() {
+        ctx.clearRect(0, 0, w, h);
+        ctx.fillStyle = '#ffffff';
+        for (var i = 0; i < flakes.length; i++) {
+          var f = flakes[i];
+          ctx.globalAlpha = 0.35 + f.z * 0.6;
+          ctx.beginPath();
+          ctx.arc(f.x, f.y, f.r, 0, 6.283);
+          ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+      }
+
+      function drawBits() {
+        ctx.fillStyle = '#e8f5ff';
+        for (var i = 0; i < bits.length; i++) {
+          var b = bits[i];
+          ctx.globalAlpha = Math.max(0, Math.min(1, (b.life / b.max) * 1.3));
+          ctx.beginPath();
+          ctx.arc(b.x, b.y, b.r, 0, 6.283);
+          ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+      }
+
+      function loop(ts) {
+        var dt = Math.min(0.05, (ts - last) / 1000);
+        last = ts; t += dt;
+        wind = Math.sin(t * 0.25);
+        for (var i = 0; i < flakes.length; i++) {
+          var f = flakes[i];
+          if (pOn) {
+            var ddx = f.x - px, ddy = f.y - py, d2 = ddx * ddx + ddy * ddy;
+            if (d2 < 14400) {
+              var d = Math.sqrt(d2) || 1, s = 1 - d / 120;
+              f.ex += (ddx / d) * s * 900 * dt;
+              f.ey += (ddy / d) * s * 700 * dt;
+            }
+          }
+          var dmp = Math.max(0, 1 - 3 * dt);
+          f.ex *= dmp; f.ey *= dmp;
+          f.y += (f.vy + f.ey) * dt;
+          f.x += (Math.sin(f.ph + t * f.sp) * f.amp * 0.5 + wind * (10 + f.z * 30) + f.ex) * dt;
+          if (f.x < -10) f.x = w + 10;
+          if (f.x > w + 10) f.x = -10;
+          if (f.y > h + 10) { f.y = -8; f.x = Math.random() * w; }
+        }
+        for (var j = bits.length - 1; j >= 0; j--) {
+          var b = bits[j];
+          b.vy += b.g * dt;
+          b.x += b.vx * dt; b.y += b.vy * dt;
+          b.life -= dt;
+          if (b.life <= 0) bits.splice(j, 1);
+        }
+        draw();
+        drawBits();
+        raf = requestAnimationFrame(loop);
+      }
+
+      function start() { if (!raf) { last = performance.now(); raf = requestAnimationFrame(loop); } }
+      function stop() { if (raf) { cancelAnimationFrame(raf); raf = 0; bits.length = 0; } }
+
+      function apply() {
+        if (toggle) {
+          toggle.setAttribute('aria-pressed', enabled ? 'true' : 'false');
+          toggle.setAttribute('aria-label', enabled ? 'Выключить снег' : 'Включить снег');
+        }
+        if (!enabled) {
+          stop(); ctx.clearRect(0, 0, w, h); canvas.style.display = 'none';
+        } else {
+          canvas.style.display = '';
+          if (mq.matches) { stop(); draw(); } else { start(); }
+        }
+      }
+
+      if (toggle) {
+        toggle.addEventListener('click', function () {
+          enabled = !enabled;
+          try { localStorage.setItem('dd_snow', enabled ? 'on' : 'off'); } catch (e) {}
+          apply();
+        });
+      }
+      window.addEventListener('resize', resize);
+      if (mq.addEventListener) mq.addEventListener('change', apply);
+      resize();
+      apply();
+    }
+
+    // ---------- Сугроб и снегоуборщик ----------
+    var ground = document.getElementById('snowGround');
+    var drift = document.getElementById('drift');
+    var plow = document.getElementById('plow');
+    if (ground && drift && plow) {
+      var driftPath = drift.querySelector('path');
+      var pile = plow.querySelector('.pile');
+      var reduceMq = window.matchMedia('(prefers-reduced-motion: reduce)');
+      var clicks = [], busy = false;
+
+      function regrow() {
+        drift.style.clipPath = 'none';
+        drift.style.transition = 'none';
+        drift.style.transform = 'scaleY(0.001)';
+        void drift.offsetWidth;
+        drift.style.transition = 'transform 9s cubic-bezier(.25,.6,.3,1)';
+        drift.style.transform = 'scaleY(1)';
+      }
+
+      function runPlow() {
+        busy = true;
+        if (reduceMq.matches) {
+          drift.style.transition = 'opacity .4s';
+          drift.style.opacity = '0';
+          setTimeout(function () { drift.style.opacity = '1'; busy = false; }, 2500);
+          return;
+        }
+        var W = ground.clientWidth, pw = plow.offsetWidth;
+        var from = -pw - 30, to = W + 40;
+        var dur = Math.max(2800, Math.min(5200, (to - from) * 2.4));
+        var t0 = performance.now();
+        drift.style.transition = 'none';
+        drift.style.transform = 'none';
+        drift.style.clipPath = 'inset(0 0 0 0)';
+        plow.style.visibility = 'visible';
+        plow.classList.add('run');
+
+        function step(ts) {
+          var k = Math.min(1, (ts - t0) / dur);
+          var x = from + (to - from) * k;
+          plow.style.transform = 'translateX(' + x.toFixed(1) + 'px)';
+          var bladeX = x + pw * 0.93;
+          var cut = Math.max(0, Math.min(W, bladeX));
+          drift.style.clipPath = 'inset(0 0 0 ' + cut.toFixed(1) + 'px)';
+          pile.style.transform = 'scale(' + (0.6 + 1.4 * Math.min(1, k * 1.5)).toFixed(2) + ')';
+          if (window.ddSnowSpray && bladeX > 0 && bladeX < W) {
+            var r = plow.getBoundingClientRect();
+            window.ddSnowSpray(r.left + r.width * 0.93, r.top + r.height * 0.55, 2, 1);
+          }
+          if (k < 1) {
+            requestAnimationFrame(step);
+          } else {
+            plow.classList.remove('run');
+            plow.style.visibility = 'hidden';
+            plow.style.transform = 'translateX(-240px)';
+            pile.style.transform = '';
+            regrow();
+            busy = false;
+          }
+        }
+        requestAnimationFrame(step);
+      }
+
+      if (driftPath) {
+        driftPath.addEventListener('click', function () {
+          var now = Date.now();
+          clicks = clicks.filter(function (c) { return now - c < 650; });
+          clicks.push(now);
+          if (clicks.length >= 3 && !busy) { clicks = []; runPlow(); }
+        });
+      }
+    }
+
+    // ---------- Гирлянда ----------
+    var garland = document.getElementById('garland');
+    var colors = ['#ff4d5e', '#ffd24a', '#5be08f', '#5cc8ff'];
+
+    function buildGarland() {
+      if (!garland) return;
+      var W = document.documentElement.clientWidth || window.innerWidth;
+      var n = Math.max(2, Math.round(W / 120));
+      var seg = W / n;
+      var wire = '', bulbs = '', k = 0;
+      for (var i = 0; i < n; i++) {
+        var x0 = i * seg, x1 = x0 + seg, cx = x0 + seg / 2;
+        wire += 'M' + x0.toFixed(1) + ' 2Q' + cx.toFixed(1) + ' 34 ' + x1.toFixed(1) + ' 2';
+        [0.2, 0.5, 0.8].forEach(function (tt) {
+          var x = (1 - tt) * (1 - tt) * x0 + 2 * (1 - tt) * tt * cx + tt * tt * x1;
+          var y = (1 - tt) * (1 - tt) * 2 + 2 * (1 - tt) * tt * 34 + tt * tt * 2;
+          var c = colors[k % colors.length];
+          var delay = ((k * 0.37) % 2.6).toFixed(2);
+          bulbs += '<rect x="' + (x - 2).toFixed(1) + '" y="' + (y - 1).toFixed(1) + '" width="4" height="5" rx="1" fill="#3a6b57"/>' +
+                   '<circle class="bulb" cx="' + x.toFixed(1) + '" cy="' + (y + 7).toFixed(1) + '" r="5" style="--c:' + c + ';animation-delay:-' + delay + 's"/>';
+          k++;
+        });
+      }
+      garland.innerHTML = '<svg viewBox="0 0 ' + W + ' 46" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">' +
+        '<path d="' + wire + '" fill="none" stroke="#3a6b57" stroke-width="1.5"/>' + bulbs + '</svg>';
+    }
+    buildGarland();
+    var rt;
+    window.addEventListener('resize', function () { clearTimeout(rt); rt = setTimeout(buildGarland, 150); });
+
+    // ---------- Счётчик до Нового года ----------
+    var chip = document.getElementById('nyCountdown');
+    if (chip) {
+      var now = new Date();
+      var target = new Date(now.getFullYear() + 1, 0, 1);
+      var days = Math.ceil((target - now) / 86400000);
+      var text = '';
+      if (now.getMonth() === 0 && now.getDate() <= 7) {
+        text = 'С Новым годом!';
+      } else if (days <= 60) {
+        var m10 = days % 10, m100 = days % 100;
+        var word = (m10 === 1 && m100 !== 11) ? 'день' : (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) ? 'дня' : 'дней';
+        text = days + ' ' + word + ' до Нового года';
+      }
+      if (text) {
+        chip.innerHTML = '<i class="fa-solid fa-snowflake"></i><span>' + text + '</span>';
+      } else {
+        chip.style.display = 'none';
+      }
+    }
+  })();
+  </script>
+
+  <!-- НОВОГОДНЯЯ МУЗЫКА -->
+  <script>
+  (function () {
+    var btn = document.getElementById('musicToggle');
+    var nextBtn = document.getElementById('musicNext');
+    var pill = document.getElementById('musicNow');
+    if (!btn) return;
+
+    var CUSTOM_TRACKS = [
+      { src: 'music/wham-last-christmas.mp3',           title: 'Wham! — Last Christmas' },
+      { src: 'music/christmas-at-hogwarts.mp3',         title: 'Christmas at Hogwarts' },
+      { src: 'music/sia-snowman.mp3',                   title: 'Sia — Snowman' },
+      { src: 'music/we-wish-you-a-merry-christmas.mp3', title: 'We Wish You a Merry Christmas' },
+      { src: 'music/abba-happy-new-year.mp3',           title: 'ABBA — Happy New Year' }
+    ];
+    var customFailed = false;
+
+    var SONGS = [
+      { title: 'Jingle Bells', bpm: 150, seq:
+        'E4:1 E4:1 E4:2  E4:1 E4:1 E4:2  E4:1 G4:1 C4:1.5 D4:.5  E4:4  F4:1 F4:1 F4:1.5 F4:.5  F4:1 E4:1 E4:1 E4:.5 E4:.5  E4:1 D4:1 D4:1 E4:1  D4:2 G4:2 ' +
+        'E4:1 E4:1 E4:2  E4:1 E4:1 E4:2  E4:1 G4:1 C4:1.5 D4:.5  E4:4  F4:1 F4:1 F4:1.5 F4:.5  F4:1 E4:1 E4:1 E4:.5 E4:.5  G4:1 G4:1 F4:1 D4:1  C4:4' },
+      { title: 'Тихая ночь', bpm: 96, seq:
+        'G4:1.5 A4:.5 G4:1  E4:3  G4:1.5 A4:.5 G4:1  E4:3  D5:2 D5:1  B4:3  C5:2 C5:1  G4:3 ' +
+        'A4:2 A4:1  C5:1.5 B4:.5 A4:1  G4:1.5 A4:.5 G4:1  E4:3  A4:2 A4:1  C5:1.5 B4:.5 A4:1  G4:1.5 A4:.5 G4:1  E4:3 ' +
+        'D5:2 D5:1  F5:1.5 D5:.5 B4:1  C5:3  E5:3  C5:1 G4:1 E4:1  G4:1.5 F4:.5 D4:1  C4:3' },
+      { title: 'We Wish You a Merry Christmas', bpm: 140, seq:
+        'D4:1  G4:1 G4:.5 A4:.5 G4:.5 F#4:.5  E4:1 E4:1 E4:1  A4:1 A4:.5 B4:.5 A4:.5 G4:.5  F#4:1 D4:1 D4:1  ' +
+        'B4:1 B4:.5 C5:.5 B4:.5 A4:.5  G4:1 E4:1 D4:.5 D4:.5  E4:1 A4:1 F#4:1  G4:3' }
+    ];
+
+    var ctx = null, master = null, on = false, idx = 0, songEnd = 0, audio = null, pillTimer = 0;
+
+    function freq(name) {
+      var m = /^([A-G])(#|b)?(\d)$/.exec(name);
+      var semis = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 }[m[1]] + (m[2] === '#' ? 1 : m[2] === 'b' ? -1 : 0);
+      return 440 * Math.pow(2, (semis + 12 * (parseInt(m[3], 10) + 1) - 69) / 12);
+    }
+    function parse(seq) {
+      return seq.replace(/\|/g, ' ').trim().split(/\s+/).map(function (tok) {
+        var a = tok.split(':'); return { n: a[0], b: parseFloat(a[1]) };
+      });
+    }
+
+    function ensureCtx() {
+      if (ctx) return;
+      ctx = new (window.AudioContext || window.webkitAudioContext)();
+      master = ctx.createGain();
+      master.gain.value = 0.25;
+      var delay = ctx.createDelay(), fb = ctx.createGain(), wet = ctx.createGain();
+      delay.delayTime.value = 0.27; fb.gain.value = 0.28; wet.gain.value = 0.3;
+      master.connect(ctx.destination);
+      master.connect(delay); delay.connect(fb); fb.connect(delay); delay.connect(wet); wet.connect(ctx.destination);
+    }
+
+    function bell(f, t, d) {
+      var g = ctx.createGain(), life = Math.min(2.4, d + 1.1);
+      g.connect(master);
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.5, t + 0.006);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + life);
+      [[1, 1], [2, 0.32], [4.02, 0.12]].forEach(function (p) {
+        var o = ctx.createOscillator(), og = ctx.createGain();
+        o.type = 'sine'; o.frequency.value = f * p[0]; og.gain.value = p[1];
+        o.connect(og); og.connect(g);
+        o.start(t); o.stop(t + life + 0.05);
+      });
+    }
+
+    function showTitle(text) {
+      if (!pill) return;
+      pill.textContent = '♪ ' + text;
+      pill.classList.add('show');
+      clearTimeout(pillTimer);
+      pillTimer = setTimeout(function () { pill.classList.remove('show'); }, 5000);
+    }
+
+    function scheduleSong() {
+      var s = SONGS[idx % SONGS.length], spb = 60 / s.bpm;
+      var t = ctx.currentTime + 0.15, pos = 0;
+      parse(s.seq).forEach(function (x) {
+        if (x.n !== 'R') bell(freq(x.n), t + pos * spb, x.b * spb);
+        pos += x.b;
+      });
+      songEnd = t + pos * spb + 1.8;
+      idx++;
+      showTitle(s.title);
+    }
+
+    function loadCustom() {
+      var tr = CUSTOM_TRACKS[idx % CUSTOM_TRACKS.length];
+      var src = typeof tr === 'string' ? tr : tr.src;
+      audio.src = src;
+      showTitle(typeof tr === 'string' ? decodeURIComponent(src.split('/').pop().replace(/\.[^.]+$/, '')) : tr.title);
+    }
+
+    function ui() {
+      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+      btn.setAttribute('aria-label', on ? 'Выключить новогоднюю музыку' : 'Включить новогоднюю музыку');
+      btn.firstElementChild.className = on ? 'fa-solid fa-music' : 'fa-solid fa-volume-xmark';
+    }
+
+    function start() {
+      on = true; ui();
+      try { localStorage.setItem('dd_music', 'on'); } catch (e) {}
+      if (CUSTOM_TRACKS.length && !customFailed) {
+        if (!audio) {
+          audio = new Audio(); audio.volume = 0.25;
+          audio.addEventListener('ended', function () { idx++; loadCustom(); audio.play().catch(function () {}); });
+          audio.addEventListener('error', function () {
+            customFailed = true; audio = null; idx = 0;
+            if (on) start();
+          });
+          loadCustom();
+        }
+        audio.play().catch(function () {});
+        return;
+      }
+      ensureCtx();
+      ctx.resume().then(function () {
+        if (on && ctx.currentTime >= songEnd - 0.3) scheduleSong();
+      });
+    }
+
+    function nextTrack() {
+      on = true; ui();
+      try { localStorage.setItem('dd_music', 'on'); } catch (e) {}
+      if (CUSTOM_TRACKS.length && !customFailed) {
+        if (!audio) {
+          audio = new Audio(); audio.volume = 0.25;
+          audio.addEventListener('ended', function () { idx++; loadCustom(); audio.play().catch(function () {}); });
+          audio.addEventListener('error', function () {
+            customFailed = true; audio = null; idx = 0;
+            if (on) start();
+          });
+        }
+        idx = (idx + 1) % CUSTOM_TRACKS.length;
+        loadCustom();
+        audio.play().catch(function () {});
+        return;
+      }
+      ensureCtx();
+      idx = (idx + 1) % SONGS.length;
+      ctx.resume().then(function () {
+        scheduleSong();
+      });
+    }
+
+    function stop() {
+      on = false; ui();
+      try { localStorage.setItem('dd_music', 'off'); } catch (e) {}
+      if (audio) audio.pause();
+      if (ctx) ctx.suspend();
+    }
+
+    setInterval(function () {
+      if (on && ctx && ctx.state === 'running' && ctx.currentTime >= songEnd - 0.3) scheduleSong();
+    }, 400);
+
+    document.addEventListener('visibilitychange', function () {
+      if (!on) return;
+      if (document.hidden) { if (audio) audio.pause(); if (ctx) ctx.suspend(); }
+      else { if (audio) audio.play().catch(function () {}); if (ctx) ctx.resume(); }
+    });
+
+    btn.addEventListener('click', function () { if (on) stop(); else start(); });
+    if (nextBtn) nextBtn.addEventListener('click', nextTrack);
+    ui();
+
+    var saved = null;
+    try { saved = localStorage.getItem('dd_music'); } catch (e) {}
+    if (saved === 'on') {
+      var arm = function (e) {
+        document.removeEventListener('pointerdown', arm, true);
+        document.removeEventListener('keydown', arm, true);
+        if (btn.contains(e.target) || (nextBtn && nextBtn.contains(e.target))) return;
+        if (!on) start();
+      };
+      document.addEventListener('pointerdown', arm, true);
+      document.addEventListener('keydown', arm, true);
+    }
+  })();
+  </script>
+</body>
+</html>
+```[cite: 1, 3, 4, 5, 6, 7]
+
+Не забудь положить рядом с `index.html` папку `music/` с пятью аудиофайлами (`wham-last-christmas.mp3`, `christmas-at-hogwarts.mp3`, `sia-snowman.mp3`, `we-wish-you-a-merry-christmas.mp3`, `abba-happy-new-year.mp3`)[cite: 1, 3, 4, 5, 6, 7]. Если понадобится что-то ещё докрутить — обращайся!

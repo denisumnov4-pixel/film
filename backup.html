@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Резервная копия: Семейная кинотека</title>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; padding: 2rem 1rem 3rem;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    color: #eef6fc;
+    background: linear-gradient(180deg, #0a2131 0%, #07141f 60%, #050e16 100%);
+  }
+  main { max-width: 760px; margin: 0 auto; }
+  h1 { font-size: 1.6rem; margin: 0 0 .3rem; }
+  p.lead { margin: 0 0 1.5rem; color: #a9c3d6; line-height: 1.5; }
+  .card {
+    background: rgba(12, 33, 48, .9); border: 1px solid rgba(190, 225, 255, .18);
+    border-radius: 16px; padding: 1.25rem; margin-bottom: 1rem;
+  }
+  .status { font-weight: 600; margin: 0 0 .75rem; }
+  .status.ok { color: #7fe3b0; } .status.err { color: #ff8a8a; } .status.wait { color: #f2c14e; }
+  .hint { color: #a9c3d6; font-size: .9rem; line-height: 1.5; margin: .5rem 0 0; }
+  .row { display: flex; flex-wrap: wrap; gap: .6rem; }
+  button, .filebtn {
+    font: inherit; font-weight: 600; cursor: pointer;
+    padding: .7rem 1.1rem; border-radius: 12px; border: 0; color: #fff;
+    background: linear-gradient(135deg, #e0334b, #a3122c);
+  }
+  button.alt, .filebtn { background: rgba(190, 225, 255, .12); border: 1px solid rgba(190, 225, 255, .3); color: #eef6fc; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  button:focus-visible, .filebtn:focus-within { outline: 2px solid #f2c14e; outline-offset: 2px; }
+  .filebtn input { position: absolute; opacity: 0; width: 0; height: 0; }
+  .filebtn { position: relative; display: inline-block; }
+  h2 { font-size: 1.05rem; margin: 0 0 .75rem; }
+  table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+  th, td { text-align: left; padding: .45rem .5rem; border-bottom: 1px solid rgba(190, 225, 255, .12); }
+  th { color: #a9c3d6; font-weight: 600; }
+  .scroll { max-height: 340px; overflow: auto; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Резервная копия фильмов</h1>
+  <p class="lead">Эта страница только читает базу: ничего не удаляет и не меняет. Скачайте копию, и записи будут лежать у вас на компьютере.</p>
+
+  <div class="card">
+    <p id="status" class="status wait">Подключение к базе...</p>
+    <div class="row">
+      <button id="btnJson" disabled>Скачать копию (JSON)</button>
+      <button id="btnCsv" class="alt" disabled>Скачать таблицей (CSV, для Excel)</button>
+    </div>
+    <p id="hint" class="hint"></p>
+  </div>
+
+  <div class="card">
+    <h2>Восстановить из файла</h2>
+    <p class="hint" style="margin-top:0">Выберите ранее скачанный JSON. Добавятся только те фильмы, которых сейчас нет в базе, существующие записи не изменятся.</p>
+    <div class="row" style="margin-top:.75rem">
+      <label class="filebtn">Выбрать файл копии<input id="restoreFile" type="file" accept=".json,application/json" disabled></label>
+    </div>
+    <p id="restoreMsg" class="hint"></p>
+  </div>
+
+  <div class="card">
+    <h2>Что сейчас в базе</h2>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Название</th><th>Статус</th><th>Кто добавил</th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<script>
+  const firebaseConfig = {
+      apiKey: "AIzaSyAnnPp_BnWP9hjPiZjInNM_S00zHk4oqg",
+      authDomain: "movies-denis-darina.firebaseapp.com",
+      projectId: "movies-denis-darina",
+      storageBucket: "movies-denis-darina.firebasestorage.app",
+      messagingSenderId: "313628413532",
+      appId: "1:313628413532:web:b37f004bf86ead3efe2099",
+      measurementId: "G-1XTTS8HB1M"
+    };
+
+  var db = null, items = [];
+  var $ = function (id) { return document.getElementById(id); };
+
+  function setStatus(kind, text) { var el = $('status'); el.className = 'status ' + kind; el.textContent = text; }
+
+  function load() {
+    setStatus('wait', 'Читаю базу...');
+    return db.collection('movies').get().then(function (snap) {
+      items = [];
+      snap.forEach(function (d) { var o = d.data(); if (!o.id) o.id = d.id; items.push(o); });
+      setStatus('ok', 'Найдено фильмов в базе: ' + items.length);
+      $('btnJson').disabled = $('btnCsv').disabled = items.length === 0;
+      $('restoreFile').disabled = false;
+      $('hint').textContent = items.length ? '' : 'База читается, но коллекция movies пуста.';
+      render();
+    }).catch(function (err) {
+      setStatus('err', 'Не удалось прочитать базу: ' + (err.code || err.message));
+      $('hint').textContent = (err.code === 'permission-denied')
+        ? 'Правила Firestore закрыли доступ (часто это срок тестовых правил). Фильмы при этом не удалены: откройте Firebase Console, затем Firestore Database и Rules, продлите правила и обновите эту страницу.'
+        : 'Проверьте интернет и обновите страницу.';
+    });
+  }
+
+  function render() {
+    var tb = $('rows'); tb.innerHTML = '';
+    items.forEach(function (m) {
+      var tr = document.createElement('tr');
+      [m.title || 'Без названия', m.status || '', m.addedBy || ''].forEach(function (t) {
+        var td = document.createElement('td'); td.textContent = t; tr.appendChild(td);
+      });
+      tb.appendChild(tr);
+    });
+  }
+
+  function stamp() { return new Date().toISOString().slice(0, 10); }
+  function download(name, text, type) {
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([text], { type: type }));
+    a.download = name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
+  }
+
+  $('btnJson').addEventListener('click', function () {
+    download('kinoteka-backup-' + stamp() + '.json', JSON.stringify(items, null, 2), 'application/json');
+  });
+
+  $('btnCsv').addEventListener('click', function () {
+    var keys = [];
+    items.forEach(function (m) { Object.keys(m).forEach(function (k) { if (keys.indexOf(k) < 0) keys.push(k); }); });
+    function cell(v) {
+      if (v === undefined || v === null) return '';
+      if (typeof v === 'object') v = JSON.stringify(v);
+      v = String(v);
+      return /[",\n\r;]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v;
+    }
+    var lines = [keys.map(cell).join(',')];
+    items.forEach(function (m) { lines.push(keys.map(function (k) { return cell(m[k]); }).join(',')); });
+    download('kinoteka-backup-' + stamp() + '.csv', '\ufeff' + lines.join('\r\n'), 'text/csv;charset=utf-8');
+  });
+
+  function revive(v) {                       // вернуть метки времени Firestore после JSON
+    if (Array.isArray(v)) return v.map(revive);
+    if (v && typeof v === 'object') {
+      if (typeof v.seconds === 'number' && typeof v.nanoseconds === 'number' && Object.keys(v).length === 2) {
+        return new firebase.firestore.Timestamp(v.seconds, v.nanoseconds);
+      }
+      var o = {}; Object.keys(v).forEach(function (k) { o[k] = revive(v[k]); }); return o;
+    }
+    return v;
+  }
+
+  $('restoreFile').addEventListener('change', function (e) {
+    var f = e.target.files[0], msg = $('restoreMsg');
+    if (!f) return;
+    var rd = new FileReader();
+    rd.onload = function () {
+      var data;
+      try { data = JSON.parse(rd.result); } catch (x) { msg.textContent = 'Это не JSON-файл копии.'; return; }
+      if (data && !Array.isArray(data) && Array.isArray(data.movies)) data = data.movies;
+      if (!Array.isArray(data)) { msg.textContent = 'В файле нет списка фильмов.'; return; }
+      msg.textContent = 'Сверяю с базой...';
+      load().then(function () {
+        var have = {}; items.forEach(function (m) { have[m.id] = true; });
+        var missing = data.filter(function (m) { return m && typeof m.id === 'string' && m.id && !have[m.id]; });
+        if (!missing.length) { msg.textContent = 'Все фильмы из файла уже есть в базе. Ничего добавлять не нужно.'; return; }
+        if (!confirm('Добавить в базу фильмов, которых там сейчас нет: ' + missing.length + '? Существующие записи не изменятся.')) { msg.textContent = 'Отменено.'; return; }
+        var chunks = [];
+        for (var i = 0; i < missing.length; i += 400) chunks.push(missing.slice(i, i + 400));
+        chunks.reduce(function (p, chunk) {
+          return p.then(function () {
+            var b = db.batch();
+            chunk.forEach(function (m) { b.set(db.collection('movies').doc(m.id), revive(m)); });
+            return b.commit();
+          });
+        }, Promise.resolve()).then(function () {
+          msg.textContent = 'Готово: добавлено фильмов: ' + missing.length;
+          return load();
+        }).catch(function (err) { msg.textContent = 'Не удалось записать: ' + (err.code || err.message); });
+      });
+    };
+    rd.readAsText(f);
+    e.target.value = '';
+  });
+
+  try {
+    if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+    db = firebase.firestore();
+    load();
+  } catch (err) {
+    setStatus('err', 'Не удалось подключиться: ' + err.message);
+  }
+</script>
+</body>
+</html>
